@@ -407,14 +407,10 @@ async def async_mqtt_entry_helper(
                 entities.append(entity_class(hass, config, entry, None))
             except vol.Invalid as ex:
                 error = str(ex)
-                config_file = getattr(yaml_config, "__config_file__", "n/a")
-                line = getattr(yaml_config, "__line__", "n/a")
-                if isinstance(yaml_config, dict):
-                    issue_id = str(hash(frozenset(yaml_config.items())))
-                    yaml_config_str = yaml.dump(dict(yaml_config))
-                else:
-                    yaml_config_str = str(yaml_config)  # type: ignore[unreachable]
-                    issue_id = f"{domain}_{yaml_config_str}"
+                config_file = getattr(yaml_config, "__config_file__")
+                line = getattr(yaml_config, "__line__")
+                issue_id = hex(hash(frozenset(yaml_config.items())))
+                yaml_config_str = yaml.dump(dict(yaml_config))
                 learn_more_url = (
                     f"https://www.home-assistant.io/integrations/{domain}.mqtt/"
                 )
