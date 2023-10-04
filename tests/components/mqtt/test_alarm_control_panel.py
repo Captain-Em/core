@@ -184,11 +184,9 @@ async def test_fail_setup_without_state_or_command_topic(
     hass: HomeAssistant, mqtt_mock_entry: MqttMockHAClientGenerator, valid
 ) -> None:
     """Test for failing setup with no state or command topic."""
-    if valid:
-        await mqtt_mock_entry()
-        return
-    with pytest.raises(AssertionError):
-        await mqtt_mock_entry()
+    assert await mqtt_mock_entry()
+    state = hass.states.get(f"{alarm_control_panel.DOMAIN}.test")
+    assert (state is not None) == valid
 
 
 @pytest.mark.parametrize("hass_config", [DEFAULT_CONFIG])
@@ -306,15 +304,13 @@ async def test_supported_features(
     valid: bool,
 ) -> None:
     """Test conditional enablement of supported features."""
+    assert await mqtt_mock_entry()
+    state = hass.states.get("alarm_control_panel.test")
     if valid:
-        await mqtt_mock_entry()
-        assert (
-            hass.states.get("alarm_control_panel.test").attributes["supported_features"]
-            == expected_features
-        )
+        assert state is not None
+        assert state.attributes["supported_features"] == expected_features
     else:
-        with pytest.raises(AssertionError):
-            await mqtt_mock_entry()
+        assert state is None
 
 
 @pytest.mark.parametrize(
