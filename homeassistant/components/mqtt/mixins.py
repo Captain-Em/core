@@ -9,6 +9,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Protocol, cast, final
 
 import voluptuous as vol
+import yaml
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -53,6 +54,7 @@ from homeassistant.helpers.event import (
     async_track_device_registry_updated_event,
     async_track_entity_registry_updated_event,
 )
+from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 from homeassistant.helpers.typing import (
     UNDEFINED,
     ConfigType,
@@ -403,9 +405,46 @@ async def async_mqtt_entry_helper(
             try:
                 config = platform_schema_modern(yaml_config)
                 entities.append(entity_class(hass, config, entry, None))
-            except vol.Invalid:
-                # We do want to register an issue here
-                pass
+            except vol.Invalid as ex:
+                error = str(ex)
+                config_file = getattr(yaml_config, "__config_file__", "n/a")
+                line = getattr(yaml_config, "__line__", "n/a")
+                if isinstance(yaml_config, dict):
+                    issue_id = str(hash(frozenset(yaml_config.items())))
+                    yaml_config_str = yaml.dump(dict(yaml_config))
+                else:
+                    yaml_config_str = str(yaml_config)  # type: ignore[unreachable]
+                    issue_id = f"{domain}_{yaml_config_str}"
+                learn_more_url = (
+                    f"https://www.home-assistant.io/integrations/{domain}.mqtt/"
+                )
+                async_create_issue(
+                    hass,
+                    DOMAIN,
+                    issue_id,
+                    issue_domain=domain,
+                    is_fixable=False,
+                    severity=IssueSeverity.ERROR,
+                    learn_more_url=learn_more_url,
+                    translation_placeholders={
+                        "domain": domain,
+                        "config_file": config_file,
+                        "line": line,
+                        "config": yaml_config_str,
+                        "error": error,
+                    },
+                    translation_key="invalid_platform_config",
+                )
+                mqtt_data.open_config_issues.add(issue_id)
+                _LOGGER.error(
+                    "%s for manual configured MQTT %s item, in %s, line %s Got %s",
+                    error,
+                    domain,
+                    config_file,
+                    line,
+                    yaml_config,
+                )
+
         async_add_entities(entities)
 
     # discover manual configured MQTT items
